@@ -266,3 +266,46 @@ class ConversationCreateSerializer(serializers.Serializer):
         except User.DoesNotExist:
             raise serializers.ValidationError("User with this email does not exist")
         return value
+    
+# Add these serializers to your existing serializers.py
+
+from .models import Payment
+
+class PaymentSerializer(serializers.ModelSerializer):
+    booking_id = serializers.CharField(source='booking.booking_id', read_only=True)
+    user_name = serializers.CharField(source='booking.user_id.get_full_name', read_only=True)
+    listing_name = serializers.CharField(source='booking.listing_id.name', read_only=True)
+
+    class Meta:
+        model = Payment
+        fields = [
+            'payment_id', 'booking_id', 'user_name', 'listing_name',
+            'transaction_id', 'chapa_checkout_url', 'amount', 'currency',
+            'status', 'chapa_reference', 'created_at', 'updated_at'
+        ]
+        read_only_fields = [
+            'payment_id', 'transaction_id', 'chapa_checkout_url',
+            'chapa_reference', 'created_at', 'updated_at'
+        ]
+
+
+class PaymentInitiateSerializer(serializers.Serializer):
+    booking_id = serializers.UUIDField()
+    return_url = serializers.URLField()
+    
+    def validate_booking_id(self, value):
+        try:
+            booking = Booking.objects.get(booking_id=value)
+            # Check if user owns this booking
+            if booking.user_id != self.context['request'].user:
+                raise serializers.ValidationError("You can only initiate payment for your own bookings")
+            # Check if payment already exists
+            if hasattr(booking, 'payment'):
+                raise serializers.ValidationError("Payment already exists for this booking")
+            return value
+        except Booking.DoesNotExist:
+            raise serializers.ValidationError("Booking not found")
+
+
+class PaymentVerifySerializer(serializers.Serializer):
+    transaction_id = serializers.CharField(max_length=100)

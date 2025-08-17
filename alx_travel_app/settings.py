@@ -1,6 +1,7 @@
 from pathlib import Path
 import os
 import environ
+from decouple import config
 
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -36,8 +37,13 @@ THIRD_PARTY_APPS = [
 ]
 
 LOCAL_APPS = [
-    'alx_travel_app.listings.apps.ListingsConfig',
+    'listings.apps.ListingsConfig',
 ]
+
+import os
+
+# Chapa API Configuration
+CHAPA_SECRET_KEY = os.environ.get('CHAPA_SECRET_KEY', 'your-chapa-secret-key-here')
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
 
@@ -74,9 +80,14 @@ TEMPLATES = [
 WSGI_APPLICATION = 'alx_travel_app.wsgi.application'
 
 # Setting up database to use MYSQL
+# settings.py
 DATABASES = {
-    'default': env.db()
+    'default': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
+    }
 }
+
 
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators

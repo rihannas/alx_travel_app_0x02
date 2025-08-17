@@ -92,3 +92,29 @@ class Review(models.Model):
 
     def __str__(self):
         return f"Review by {self.user_id} for {self.property_id} - {self.rating}⭐"
+    
+
+class Payment(models.Model):
+    PAYMENT_STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('completed', 'Completed'),
+        ('failed', 'Failed'),
+        ('canceled', 'Canceled'),
+    ]
+
+    payment_id = models.UUIDField(primary_key=True, db_index=True, default=uuid.uuid4)
+    booking = models.OneToOneField(Booking, on_delete=models.CASCADE, related_name='payment')
+    transaction_id = models.CharField(max_length=100, unique=True, blank=True, null=True)
+    chapa_checkout_url = models.URLField(blank=True, null=True)
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    currency = models.CharField(max_length=3, default='ETB')
+    status = models.CharField(max_length=10, choices=PAYMENT_STATUS_CHOICES, default='pending')
+    chapa_reference = models.CharField(max_length=100, blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Payment {self.payment_id} - {self.status} - {self.amount} {self.currency}"
+
+    class Meta:
+        ordering = ['-created_at']
