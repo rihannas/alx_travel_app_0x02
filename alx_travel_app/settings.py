@@ -40,10 +40,9 @@ LOCAL_APPS = [
     'listings.apps.ListingsConfig',
 ]
 
-import os
 
 # Chapa API Configuration
-CHAPA_SECRET_KEY = os.environ.get('CHAPA_SECRET_KEY', 'your-chapa-secret-key-here')
+CHAPA_SECRET_KEY = env('CHAPA_SECRET_KEY', default='your-chapa-secret-key-here')
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
 

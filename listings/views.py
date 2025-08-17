@@ -1,10 +1,12 @@
 # Create your views here.
 from rest_framework import viewsets, status
+from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.shortcuts import get_object_or_404
 from django.views.decorators.csrf import csrf_exempt
-from django.utils.decorators import action, method_decorator
+from django.utils.decorators import method_decorator
+from rest_framework.decorators import action
 from django.http import JsonResponse
 from .models import Listing, Booking, Payment
 from .serializers import (
@@ -17,15 +19,6 @@ import json
 import logging
 
 logger = logging.getLogger(__name__)
-
-class ListingViewSet(viewsets.ModelViewSet):
-    queryset = Listing.objects.all()
-    serializer_class = ListingSerializer
-
-
-class BookingViewSet(viewsets.ModelViewSet):
-    queryset = Booking.objects.all()
-    serializer_class = BookingSerializer
 
 
 class ListingViewSet(viewsets.ModelViewSet):
@@ -232,77 +225,45 @@ class PaymentViewSet(viewsets.ModelViewSet):
         
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-
 @method_decorator(csrf_exempt, name='dispatch')
-class PaymentCallbackView:
-    """
-    Handle Chapa payment callbacks (webhooks)
-    """
-    def post(self, request):
+class PaymentCallbackView(APIView):
+    permission_classes = [AllowAny]  # Webhooks don't require auth
+
+    def post(self, request, *args, **kwargs):
         try:
-            # Parse callback data
             callback_data = json.loads(request.body)
             transaction_id = callback_data.get('tx_ref')
             status = callback_data.get('status', '').lower()
             
-            logger.info(f"Received Chapa callback for transaction {transaction_id}")
-            logger.info(f"Callback data: {callback_data}")
-            
             if transaction_id:
                 try:
                     payment = Payment.objects.get(transaction_id=transaction_id)
-                    
-                    # Map Chapa callback status to our status
                     status_mapping = {
                         'success': 'completed',
                         'failed': 'failed',
                         'pending': 'pending'
                     }
-                    
-                    new_status = status_mapping.get(status, 'pending')
-                    payment.status = new_status
+                    payment.status = status_mapping.get(status, 'pending')
                     payment.save()
                     
                     # Update booking status
-                    if new_status == 'completed':
+                    if payment.status == 'completed':
                         payment.booking.status = 'confirmed'
                         payment.booking.save()
-                        
-                        # Send confirmation email
-                        chapa_service = ChapaService()
-                        chapa_service.send_confirmation_email(payment.booking)
-                        
-                    elif new_status == 'failed':
+                        ChapaService().send_confirmation_email(payment.booking)
+                    elif payment.status == 'failed':
                         payment.booking.status = 'canceled'
                         payment.booking.save()
                     
-                    return JsonResponse({
-                        'success': True,
-                        'message': 'Callback processed successfully'
-                    })
-                    
-                except Payment.DoesNotExist:
-                    logger.error(f"Payment not found for transaction {transaction_id}")
-                    return JsonResponse({
-                        'success': False,
-                        'error': 'Payment not found'
-                    }, status=404)
-            else:
-                logger.error("No transaction ID in callback data")
-                return JsonResponse({
-                    'success': False,
-                    'error': 'Invalid callback data'
-                }, status=400)
+                    return JsonResponse({'success': True, 'message': 'Callback processed successfully'})
                 
+                except Payment.DoesNotExist:
+                    return JsonResponse({'success': False, 'error': 'Payment not found'}, status=404)
+            else:
+                return JsonResponse({'success': False, 'error': 'Invalid callback data'}, status=400)
+
         except json.JSONDecodeError:
-            logger.error("Invalid JSON in callback data")
-            return JsonResponse({
-                'success': False,
-                'error': 'Invalid JSON data'
-            }, status=400)
+            return JsonResponse({'success': False, 'error': 'Invalid JSON data'}, status=400)
         except Exception as e:
             logger.error(f"Error processing callback: {str(e)}")
-            return JsonResponse({
-                'success': False,
-                'error': 'Internal server error'
-            }, status=500)
+            return JsonResponse({'success': False, 'error': 'Internal server error'}, status=500)
