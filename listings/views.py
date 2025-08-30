@@ -14,6 +14,8 @@ from .serializers import (
     PaymentInitiateSerializer, PaymentVerifySerializer
 )
 from .services import ChapaService
+from .tasks import send_booking_email
+
 
 import json
 import logging
@@ -30,6 +32,14 @@ class BookingViewSet(viewsets.ModelViewSet):
     queryset = Booking.objects.all()
     serializer_class = BookingSerializer
     permission_classes = [IsAuthenticated]
+
+    def perform_create(self, serializer):
+        booking = serializer.save()
+        # Trigger Celery task
+        send_booking_email.delay(
+            booking.customer.email,
+            f"Booking ID: {booking.id}, Date: {booking.date}, Destination: {booking.destination}"
+        )
 
     def get_queryset(self):
         """Filter bookings based on user role"""

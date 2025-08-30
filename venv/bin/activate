@@ -37,7 +37,7 @@ deactivate () {
 # unset irrelevant variables
 deactivate nondestructive
 
-VIRTUAL_ENV="/Users/rihannaali/Desktop/ALX/alx-backend-python/alx_travel_app_0x00/alx_travel_app/venv"
+VIRTUAL_ENV="/Users/rihannaali/Desktop/ALX/alx_travel_app_0x03/venv"
 export VIRTUAL_ENV
 
 _OLD_VIRTUAL_PATH="$PATH"
